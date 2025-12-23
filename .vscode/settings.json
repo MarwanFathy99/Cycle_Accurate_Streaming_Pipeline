@@ -1,0 +1,6 @@
+{
+    "C_Cpp.default.includePath": [
+        "/usr/local/Cellar/verilator/5.042/share/verilator/include"
+    ],
+    "C_Cpp.default.compilerPath": "/usr/bin/clang++"
+}

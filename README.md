@@ -56,14 +56,14 @@ brew install surfer
 
 ## Files Overview
 
-### `rtl/cycle_accurtae_streaming_pipeline.sv`
+### `rtl/cycle_accurate_streaming_pipeline.sv`
 SystemVerilog module demonstrating:
 - Clock and reset signals
 - Ready-Valid handshake
 - Increment of in_data
 
 
-### `sim/cycle_accurtae_streaming_pipeline_tb.cpp`
+### `sim/cycle_accurate_streaming_pipeline_tb.cpp`
 C testbench that:
 - Instantiates the compiled Verilog module
 - Generates clock and reset signals

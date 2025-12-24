@@ -1,6 +1,6 @@
 # Cycle Accurate Streaming Pipeline
 
-A SystemVerilog streaming pipeline which relies on a handshake mechanism to execute data transfers. The module increments data by 1 (used as a sanity check)
+A SystemVerilog streaming pipeline which relies on a handshake mechanism to execute data transfers. Each pipeline stage increments data by 1 (used as a sanity check)
 
 The module is expandable to multiple pipeline stages.
 ## Prerequisites

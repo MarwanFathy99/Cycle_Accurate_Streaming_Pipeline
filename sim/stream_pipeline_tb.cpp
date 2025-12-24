@@ -169,13 +169,13 @@ int main(int argc, char **argv) {
 
 uint8_t decide_out_ready(OutputMode Output){
 
-    uint8_t stall = (Output == OutputMode::PERIODIC_STALL) ? 5 : rand() % 5;
+    uint8_t stall = (Output == OutputMode::PERIODIC_STALL) ? 10 : rand() % 5;
     switch (Output) {
         case OutputMode::ALWAYS_READY:
             return 1;
         case OutputMode::PERIODIC_STALL:
             // Implement periodic stall logic
-            return (cycle % (stall + 1) == 0) ? 0 : 1;
+            return (cycle % (stall + 1) >= 5) ? 0 : 1;
         case OutputMode::RANDOM_STALL:
             // Implement random stall logic
             return (cycle % (stall + 1) == 0) ? 0 : 1;

@@ -33,6 +33,12 @@ OutputMode parse_output_mode(const char* mode_str) {
     }
 }
 
+struct PendingTransaction {
+    uint32_t data;
+    uint32_t expected_output;
+};
+std::queue<PendingTransaction> pending_queue;
+
 int main(int argc, char **argv) {
     // Parse custom arguments BEFORE Verilated::commandArgs consumes them
     OutputMode output_mode = OutputMode::ALWAYS_READY;
@@ -55,7 +61,7 @@ int main(int argc, char **argv) {
     printf("Starting simulation...\n");
 
     const uint32_t reset_cycles = 1;
-    const uint8_t stages = 1;
+    const uint8_t stages = 4;
     const uint32_t num_transactions = 1000;
     const uint64_t max_cycles = reset_cycles + 5 * num_transactions + 10 * stages + 1000;
 
@@ -107,26 +113,28 @@ int main(int argc, char **argv) {
     while (cycle < max_cycles) {
         // Clock LOW
         top->clk = 0;
-
         
         out_ready = decide_out_ready(output_mode);
+    
+        top->eval();
+        tfp->dump(cycle * 10);
 
         idle_cycle_count++;
 
         if(!pending_input) {
             pending_input = true;
             in_valid = 1;
-            idle_cycle_count = 0;
-            in_data = in_valid ? cycle : in_data;
-            pending_value = in_valid ? in_data + 1 : pending_value;
+            in_data = cycle;
+            PendingTransaction tx = {cycle, cycle + 4};  // stages=4
+            pending_queue.push(tx);
         }
-    
-        top->out_ready = out_ready;
+        
         top->in_data = in_data;
         top->in_valid = in_valid;
+        top->out_ready = out_ready;
 
         top->eval();
-        tfp->dump(cycle * 10);
+        tfp->dump(cycle * 10 + 2.5);
 
         // Clock HIGH
         top->clk = 1;
@@ -134,12 +142,16 @@ int main(int argc, char **argv) {
         top->eval();
         tfp->dump(cycle * 10 + 5);
 
-        if(out_ready && top->out_valid && pending_input) {
-            input_accept_cycle[in_data] = cycle;
-            out_data = top->out_data;
+        // Check if input was accepted this cycle
+        if(top->in_ready && in_valid) {
             pending_input = false;
-            latency_samples.push_back(idle_cycle_count);
-            assert(out_data == pending_value && "Data mismatch detected!");
+            in_valid = 0;
+        }
+
+        if(out_ready && top->out_valid && !pending_queue.empty()) {
+            auto tx = pending_queue.front();
+            pending_queue.pop();
+            assert(top->out_data == tx.expected_output && "Data mismatch detected!");
         }
 
         cycle++;

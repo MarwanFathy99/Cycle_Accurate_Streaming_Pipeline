@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <cstring>
+#include <algorithm>
 #include "Vstream_pipeline.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
@@ -36,6 +37,7 @@ OutputMode parse_output_mode(const char* mode_str) {
 struct PendingTransaction {
     uint32_t data;
     uint32_t expected_output;
+    uint64_t input_cycle;
 };
 std::queue<PendingTransaction> pending_queue;
 
@@ -76,9 +78,6 @@ int main(int argc, char **argv) {
     bool pending_input = false;
     uint32_t pending_value;
     uint32_t next_input_value;
-
-    std::unordered_map<uint32_t, uint64_t> input_accept_cycle;
-    std::unordered_map<uint32_t, uint64_t> output_accept_cycle;
 
     std::vector<uint64_t> latency_samples;
 
@@ -125,8 +124,6 @@ int main(int argc, char **argv) {
             pending_input = true;
             in_valid = 1;
             in_data = cycle;
-            PendingTransaction tx = {cycle, cycle + 4};  // stages=4
-            pending_queue.push(tx);
         }
         
         top->in_data = in_data;
@@ -146,12 +143,14 @@ int main(int argc, char **argv) {
         if(top->in_ready && in_valid) {
             pending_input = false;
             in_valid = 0;
+            pending_queue.push({in_data, in_data + stages, cycle});
         }
 
         if(out_ready && top->out_valid && !pending_queue.empty()) {
             auto tx = pending_queue.front();
             pending_queue.pop();
             assert(top->out_data == tx.expected_output && "Data mismatch detected!");
+            latency_samples.push_back(cycle - tx.input_cycle);
         }
 
         cycle++;
@@ -159,9 +158,24 @@ int main(int argc, char **argv) {
     }
 
     tfp->close();
+
+    if (!latency_samples.empty()) {
+        std::sort(latency_samples.begin(), latency_samples.end());
+        uint64_t sum = 0;
+        for (auto l : latency_samples) sum += l;
+        size_t n = latency_samples.size();
+        printf("\n=== Latency Statistics (%zu transactions) ===\n", n);
+        printf("  Min:     %llu cycles\n", (unsigned long long)latency_samples.front());
+        printf("  Max:     %llu cycles\n", (unsigned long long)latency_samples.back());
+        printf("  Average: %.2f cycles\n", (double)sum / n);
+        printf("  P50:     %llu cycles\n", (unsigned long long)latency_samples[n * 50 / 100]);
+        printf("  P95:     %llu cycles\n", (unsigned long long)latency_samples[n * 95 / 100]);
+        printf("  P99:     %llu cycles\n", (unsigned long long)latency_samples[n * 99 / 100]);
+    }
+
     delete top;
     delete tfp;
-    
+
     printf("Simulation complete! Trace saved to trace.vcd\n");
     return 0;
 }  
